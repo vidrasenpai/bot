@@ -1,33 +1,39 @@
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram.error import BadRequest
 
-# API token dari BotFather
+# API Token dari BotFather
 TOKEN = '7533367231:AAEJd1mIQUHI4Lr4JlmDSmW2MBpdwH5AG5M'
 
-# Daftar kata atau frasa yang ingin diblokir
-blocked_words = ['di bio', 'bio', 'test']  # Tambahkan kata yang ingin diblokir
+# Fungsi untuk menandai semua anggota yang memiliki username
+def tag_all(update: Update, context: CallbackContext):
+    chat_id = update.message.chat_id
+    members = context.bot.get_chat_administrators(chat_id)
+    tagged_users = []
 
-# Fungsi untuk memeriksa pesan
-def block_messages(update: Update, context: CallbackContext):
-    message_text = update.message.text.lower()  # Ubah pesan ke huruf kecil untuk pencocokan
+    for member in members:
+        user = member.user
+        if user.username:
+            tagged_users.append(f"@{user.username}")
     
-    # Memeriksa apakah ada kata yang diblokir dalam pesan
-    for word in blocked_words:
-        if word in message_text:
-            # Hapus pesan jika berisi kata yang diblokir
-            context.bot.delete_message(chat_id=update.message.chat_id, message_id=update.message.message_id)
-            return
+    if tagged_users:
+        tag_message = ' '.join(tagged_users)
+        try:
+            context.bot.send_message(chat_id=chat_id, text=tag_message)
+        except BadRequest as e:
+            update.message.reply_text("Terjadi kesalahan saat menandai pengguna.")
+    else:
+        update.message.reply_text("Tidak ada anggota dengan username untuk ditandai.")
 
-# Fungsi utama untuk menjalankan bot
+# Fungsi utama untuk memulai bot
 def main():
-    # Menghubungkan bot dengan token
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    # Menambahkan handler untuk memblokir pesan yang mengandung kata-kata tertentu
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, block_messages))
+    # Menambahkan handler untuk perintah /tagall
+    dp.add_handler(CommandHandler("tagall", tag_all))
 
-    # Memulai bot
+    # Memulai polling untuk menerima pesan dari Telegram
     updater.start_polling()
     updater.idle()
 
